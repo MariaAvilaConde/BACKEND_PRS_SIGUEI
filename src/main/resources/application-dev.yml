@@ -1,0 +1,33 @@
+spring:
+     r2dbc:
+          url: r2dbc:postgresql://${DB_HOST:173.212.240.114}:${DB_PORT:5432}/${DB_NAME:sigei_psychology}?sslMode=${DB_SSL_MODE:disable}&schema=${DB_SCHEMA:public}
+          username: ${DB_USERNAME:postgres}
+          password: ${DB_PASSWORD:bDLQyGI0Uwov0ZXCYzp0}
+          pool:
+               initial-size: 5
+               max-size: 20
+               max-idle-time: 30m
+
+     security:
+          oauth2:
+               resourceserver:
+                    jwt:
+                         issuer-uri: ${KEYCLOAK_ISSUER_URI:https://sigei.ddns.net/keycloak/realms/sigei}
+                         jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:https://sigei.ddns.net/keycloak/realms/sigei/protocol/openid-connect/certs}
+
+logging:
+     pattern:
+          console: "%d{HH:mm:ss.SSS} %highlight(%-5level) [%cyan(%logger{20})] %msg%n"
+     level:
+          pe.edu.vallegrande.sigei.psychology.welfare: DEBUG
+          org.springframework.r2dbc: INFO
+          io.r2dbc.postgresql: INFO
+          org.springframework.security: DEBUG
+
+microservices:
+     students:
+          url: http://localhost:9081
+     institutions:
+          url: http://localhost:9080
+     users:
+          url: http://localhost:9083
