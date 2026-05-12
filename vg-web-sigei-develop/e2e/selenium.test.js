@@ -1,6 +1,6 @@
 import fs from "fs";
 import { Builder, By, until } from "selenium-webdriver";
-import chrome from "selenium-webdriver/chrome";
+import chrome from "selenium-webdriver/chrome.js";
 import * as chromedriver from "chromedriver";
 
 function resolveChromeBinary() {
