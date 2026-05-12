@@ -17,18 +17,32 @@ function resolveChromeBinary() {
 }
 
 async function runTest() {
-     chrome.setDefaultService(new chrome.ServiceBuilder(chromedriver.path).build());
-
      const chromeBinary = resolveChromeBinary();
-     const options = new chrome.Options()
-          .headless()
-          .addArguments("--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--window-size=1280,1024");
-
-     if (chromeBinary) {
-          options.setChromeBinaryPath(chromeBinary);
+     if (!chromeBinary) {
+          throw new Error(
+               "Chrome/Chromium binary no encontrado. Establece CHROME_BIN o instala Chrome/Chromium en el runner. " +
+               "Rutas intentadas: CHROME_BIN, CHROME_PATH, /usr/bin/google-chrome-stable, /usr/bin/google-chrome, /usr/bin/chromium, /usr/bin/chromium-browser",
+          );
      }
 
-     const driver = await new Builder().forBrowser("chrome").setChromeOptions(options).build();
+     console.log(`Usando binario de Chrome/Chromium en: ${chromeBinary}`);
+
+     const options = new chrome.Options();
+     options.addArguments(
+          "--headless=new",
+          "--no-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+          "--window-size=1280,1024",
+     );
+
+     options.setChromeBinaryPath(chromeBinary);
+
+     const driver = await new Builder()
+          .forBrowser("chrome")
+          .setChromeOptions(options)
+          .setChromeService(new chrome.ServiceBuilder(chromedriver.path))
+          .build();
 
      try {
           const baseUrl = process.env.E2E_BASE_URL || "http://127.0.0.1:4173/login";

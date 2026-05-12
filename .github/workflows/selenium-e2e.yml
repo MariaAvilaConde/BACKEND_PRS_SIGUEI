@@ -26,6 +26,11 @@ jobs:
           cache: "npm"
           cache-dependency-path: "vg-web-sigei-develop/package-lock.json"
 
+      - name: Install Chromium browser
+        run: |
+          sudo apt-get update -yqq
+          sudo apt-get install -yqq chromium
+
       - name: Install frontend dependencies
         working-directory: vg-web-sigei-develop
         run: npm install
@@ -53,7 +58,7 @@ jobs:
       - name: Run Selenium smoke test
         working-directory: vg-web-sigei-develop
         env:
-          CHROME_BIN: "/usr/bin/google-chrome-stable"
+          CHROME_BIN: "/usr/bin/chromium"
         run: npm run selenium-test
 
       - name: Stop preview server
