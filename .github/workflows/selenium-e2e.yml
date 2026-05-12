@@ -22,8 +22,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "20.20.2"
           cache: "npm"
+          cache-dependency-path: "vg-web-sigei-develop/package-lock.json"
 
       - name: Install frontend dependencies
         working-directory: vg-web-sigei-develop
