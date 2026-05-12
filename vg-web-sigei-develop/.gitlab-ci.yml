@@ -1,4 +1,5 @@
 stages:
+     - test
      - docker
      - deploy
 
@@ -6,6 +7,27 @@ variables:
      IMAGE_NAME: "oscarochoa01/sigei-web"
      DOCKER_TLS_CERTDIR: ""
      DEPLOY_WEBHOOK_URL: "https://sigei.ddns.net/api/deploy/kivBEgk1zA_T414ZsEFAb"
+
+e2e_selenium_test:
+     stage: test
+     image: node:20-bullseye
+     variables:
+          CHROME_BIN: "/usr/bin/chromium"
+     before_script:
+          - apt-get update -yqq
+          - apt-get install -yqq chromium
+          - npm install
+     script:
+          - npm run build
+          - npm run preview -- --port 4173 > /tmp/preview.log 2>&1 &
+          - PREVIEW_PID=$!
+          - npx wait-on http://127.0.0.1:4173
+          - npm run selenium-test
+     after_script:
+          - if [ -n "$PREVIEW_PID" ]; then kill "$PREVIEW_PID" || true; fi
+     rules:
+          - if: '$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "main")'
+          - if: '$CI_COMMIT_TAG'
 
 docker_publish:
      stage: docker

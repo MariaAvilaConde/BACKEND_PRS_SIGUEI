@@ -1,0 +1,57 @@
+name: Frontend Selenium E2E
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+jobs:
+  selenium-e2e:
+    name: Ejecutar Selenium en frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install frontend dependencies
+        working-directory: vg-web-sigei-develop
+        run: npm install
+
+      - name: Build frontend
+        working-directory: vg-web-sigei-develop
+        run: npm run build
+
+      - name: Start preview server
+        working-directory: vg-web-sigei-develop
+        run: |
+          npm run preview -- --port 4173 > /tmp/preview.log 2>&1 &
+          echo $! > /tmp/preview.pid
+
+      - name: Wait for frontend
+        working-directory: vg-web-sigei-develop
+        run: npx wait-on http://127.0.0.1:4173
+
+      - name: Run Selenium smoke test
+        working-directory: vg-web-sigei-develop
+        env:
+          CHROME_BIN: "/usr/bin/google-chrome-stable"
+        run: npm run selenium-test
+
+      - name: Stop preview server
+        if: always()
+        run: |
+          if [ -f /tmp/preview.pid ]; then
+            kill "$(cat /tmp/preview.pid)" || true
+          fi
