@@ -1,0 +1,189 @@
+Descripción completa del pipeline de GitHub Actions y el recorrido de las pruebas Selenium
+
+1. Propósito general
+   - El objetivo es establecer un pipeline de CI que valide el frontend de `vg-web-sigei-develop` en GitHub.
+   - La prueba principal verifica que la aplicación se pueda construir, desplegar en un servidor de vista previa y que la página de login carga correctamente.
+   - Esto permite detectar fallos de compilación y cambios que rompan la interfaz básica antes de llegar a producción.
+
+2. Contexto del proyecto
+   - El frontend está contenido en el subdirectorio `vg-web-sigei-develop` dentro del repositorio.
+   - El proyecto está basado en React y Vite, con dependencias administradas por npm.
+   - La aplicación utiliza rutas protegidas, un provider de autenticación y un diseño que arranca desde `src/App.jsx`.
+
+3. Archivos involucrados
+   - `.github/workflows/selenium-e2e.yml`
+     - Define el workflow de GitHub Actions que se ejecuta en `push` y `pull_request` hacia la rama `main`, además de permitir ejecución manual.
+   - `vg-web-sigei-develop/package.json`
+     - Incluye scripts para la aplicación y el script `selenium-test` que lanza la prueba.
+   - `vg-web-sigei-develop/package-lock.json`
+     - Asegura versiones consistentes de dependencias en el runner de GitHub Actions y es usado por el mecanismo de cache.
+   - `vg-web-sigei-develop/e2e/selenium.test.js`
+     - Contiene la prueba Selenium que explora la aplicación en modo headless.
+   - `vg-web-sigei-develop/src/features/auth/pages/LoginPage.jsx`
+     - Página de login cuyo formulario se valida con Selenium.
+
+4. Estructura del workflow de GitHub Actions
+   - Definición del workflow
+     - `name`: "Frontend Selenium E2E"
+     - `on.push.branches`: `main`
+     - `on.pull_request.branches`: `main`
+     - `workflow_dispatch`: permite ejecución manual desde la interfaz de GitHub.
+
+   - Job principal: `selenium-e2e`
+     - `runs-on: ubuntu-latest`
+     - `timeout-minutes: 20`
+
+   - Variables y cache
+     - `cache: npm` habilita almacenamiento local en el runner para dependencias npm.
+     - `cache-dependency-path: vg-web-sigei-develop/package-lock.json` indica que el cache debe invalidarse cuando cambie este lockfile.
+
+5. Descripción detallada de cada paso del pipeline
+
+   5.1 Checkout repository
+      - `actions/checkout@v4` clona el repositorio completo.
+      - Se asegura que los archivos del subdirectorio frontend `vg-web-sigei-develop` estén disponibles.
+
+   5.2 Setup Node.js
+      - `actions/setup-node@v4` instala Node.js `20.20.2`.
+      - Esto asegura coincidencia con la versión requerida: Node `20.20.2` y npm `10.8.2`.
+      - Se activa cache de npm para acelerar ejecuciones subsecuentes.
+
+   5.3 Install frontend dependencies
+      - Se ejecuta en `working-directory: vg-web-sigei-develop`.
+      - `npm install` descarga dependencias listadas en `package.json`.
+      - El lockfile `package-lock.json` garantiza el mismo árbol de dependencias que en local.
+
+   5.4 Build frontend
+      - Ejecuta `npm run build`.
+      - Vite transpila y empaqueta el frontend en un directorio de salida.
+      - Si hay errores de sintaxis, módulos faltantes o problemas de configuración, este paso falla.
+
+   5.5 Start preview server
+      - Ejecuta `npm run preview -- --port 4173` en segundo plano.
+      - Utiliza la versión compilada del proyecto para servir la aplicación en el puerto `4173`.
+      - El comando se redirige a `/tmp/preview.log` para no bloquear el pipeline.
+      - El PID del servidor se guarda en `/tmp/preview.pid` para detenerlo después.
+
+   5.6 Wait for frontend
+      - Usa `npx wait-on http://127.0.0.1:4173`.
+      - Espera activamente hasta que el servidor responda en la URL de preview.
+      - Asegura que Selenium no comience antes de que la app esté lista.
+
+   5.7 Run Selenium smoke test
+      - Se ejecuta `npm run selenium-test`.
+      - Se pasa `CHROME_BIN: /usr/bin/google-chrome-stable` para localizar Chrome en GitHub runner.
+      - Este paso es la validación funcional de la interfaz de login.
+
+   5.8 Stop preview server
+      - `if: always()` garantiza que el servidor se detenga aunque el test falle.
+      - Se lee el PID de `/tmp/preview.pid` y se mata el proceso.
+      - Previene procesos huérfanos en el runner.
+
+6. Recorrido completo de la prueba Selenium
+
+   6.1 Archivo clave: `vg-web-sigei-develop/e2e/selenium.test.js`
+      - Este archivo define el script de prueba.
+      - Utiliza la librería `selenium-webdriver` y el driver `chromedriver`.
+
+   6.2 Dependencias necesarias
+      - `selenium-webdriver`
+      - `chromedriver`
+      - Node.js 20
+      - Chrome/Chromium instalado en el runner
+
+   6.3 Inicialización de Selenium
+      - Se importa `Builder`, `By` y `until` desde `selenium-webdriver`.
+      - Se crea el servicio de Chrome con `chromedriver.path`.
+      - Se configura un navegador Chrome headless.
+      - Se pasan argumentos de estabilidad para CI:
+         - `--no-sandbox`
+         - `--disable-dev-shm-usage`
+         - `--disable-gpu`
+         - `--window-size=1280,1024`
+
+   6.4 Resolución del binario de Chrome
+      - El script busca `CHROME_BIN` y `CHROME_PATH` en variables de entorno.
+      - Si no encuentra una variable válida, prueba rutas comunes en Linux:
+         - `/usr/bin/google-chrome-stable`
+         - `/usr/bin/google-chrome`
+         - `/usr/bin/chromium`
+         - `/usr/bin/chromium-browser`
+      - Esto hace que la prueba sea más robusta entre entornos diferentes.
+
+   6.5 Apertura de la aplicación
+      - La URL objetivo es `http://127.0.0.1:4173/login`.
+      - Puede sobreescribirse con `E2E_BASE_URL` si se desea ejecutar contra otra dirección.
+      - La prueba navega a la página de login y espera a que el DOM cargue.
+
+   6.6 Validación del formulario de login
+      - El test espera los dos campos de entrada principales:
+         - `input[placeholder="Ingresa tu usuario"]`
+         - `input[placeholder="Ingresa tu contraseña"]`
+      - Busca el botón de envío:
+         - `button[type="submit"]`
+      - Comprueba que el texto del botón contiene `Iniciar Sesión`.
+      - Esta validación asegura que la pantalla de login existe y que el HTML no cambió drásticamente.
+
+   6.7 Comportamiento en caso de error
+      - Si algún elemento no aparece dentro de 10 segundos, se lanza una excepción.
+      - Si la página no carga o el servidor no está disponible, Selenium falla.
+      - El proceso finaliza con `process.exit(1)` en caso de error, haciendo que el job de GitHub Actions falle.
+
+   6.8 Mensaje de éxito
+      - Si todos los elementos se encuentran, se imprime:
+         "Selenium smoke test: /login carga correctamente y el formulario está disponible."
+
+7. Flujo de ejecución local
+
+   7.1 Pre-requisitos
+      - Node.js 20.20.2
+      - npm 10.8.2
+      - Chrome o Chromium instalado
+      - Dependencias instaladas en `vg-web-sigei-develop`
+
+   7.2 Comandos locales
+      - `cd vg-web-sigei-develop`
+      - `npm install`
+      - `npm run build`
+      - `npm run preview -- --port 4173`
+      - En otra terminal: `npm run selenium-test`
+
+   7.3 Alternativa con env var
+      - `E2E_BASE_URL=http://127.0.0.1:4173/login npm run selenium-test`
+      - Permite ejecutar la prueba contra otro servidor sin cambiar el código.
+
+8. Alcance de la prueba actual
+   - Construcción de la aplicación
+   - Arranque del servidor de preview
+   - Disponibilidad de la página `/login`
+   - Existencia de campos `Usuario` y `Contraseña`
+   - Presencia del botón `Iniciar Sesión`
+
+9. Limitaciones actuales
+   - No se prueba ingreso de credenciales.
+   - No se verifica navegación posterior a login.
+   - No se prueban rutas privadas ni funcionalidades internas.
+   - No se verifica el contenido dinámico ni datos del backend.
+
+10. Futuras extensiones sugeridas
+   - Agregar pruebas de login con credenciales válidas en un ambiente de staging.
+   - Verificar alertas de error cuando se ingresan credenciales inválidas.
+   - Añadir pruebas de navegación hacia un dashboard protegido.
+   - Automatizar la limpieza de cookies / localStorage entre pruebas.
+   - Introducir un test de regresión para la página de inicio y la barra lateral.
+
+11. Consideraciones para documentación
+   - Incluir un diagrama de flujo simple del pipeline:
+      - Checkout -> Setup Node -> Install -> Build -> Preview -> Selenium -> Cleanup
+   - Documentar la razón del cache de npm y el lockfile en el subdirectorio.
+   - Explicar por qué se utiliza headless Chrome con `--no-sandbox`.
+   - Mencionar que el workflow está diseñado solo para el subdirectorio frontend dentro del repo monorepo.
+
+12. Notas de mantenimiento
+   - Si cambia la ruta de login o los placeholders, actualizar los selectores en `selenium.test.js`.
+   - Si se agrega `yarn` o un gestor distinto, actualizar el workflow para usar el lockfile adecuado.
+   - Si se requiere un servidor separado de backend, el workflow debe ampliarse para arrancar también el backend.
+
+13. Ubicación del documento
+   - Archivo: `vg-web-sigei-develop/selenium-e2e-workflow-description.txt`
+   - Propósito: soporte para documentación interna del proyecto.

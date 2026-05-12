@@ -37,12 +37,18 @@ jobs:
       - name: Start preview server
         working-directory: vg-web-sigei-develop
         run: |
-          npm run preview -- --port 4173 > /tmp/preview.log 2>&1 &
+          npm run preview -- --host 0.0.0.0 --port 4173 > /tmp/preview.log 2>&1 &
           echo $! > /tmp/preview.pid
+          sleep 5
+          if ! curl --silent --head http://127.0.0.1:4173 > /dev/null; then
+            echo "Preview server failed to start. Output from /tmp/preview.log:"
+            cat /tmp/preview.log
+            exit 1
+          fi
 
       - name: Wait for frontend
         working-directory: vg-web-sigei-develop
-        run: npx wait-on http://127.0.0.1:4173
+        run: npx wait-on http://127.0.0.1:4173 --timeout 30000
 
       - name: Run Selenium smoke test
         working-directory: vg-web-sigei-develop
