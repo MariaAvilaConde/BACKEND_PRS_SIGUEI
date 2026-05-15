@@ -8,7 +8,10 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "selenium-test": "node ./e2e/selenium.test.js"
+    "selenium-test": "node ./e2e/selenium.test.js",
+    "cypress-test": "cypress run --spec 'cypress/e2e/**/*.cy.js'",
+    "cypress-open": "cypress open",
+    "test:functional": "npm run selenium-test && npm run cypress-test"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
@@ -33,6 +36,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react-swc": "^4.2.2",
     "chromedriver": "^147.0.4",
+    "cypress": "^13.10.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",

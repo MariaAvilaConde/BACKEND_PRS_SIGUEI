@@ -61,6 +61,10 @@ jobs:
           CHROME_BIN: "/usr/bin/chromium"
         run: npm run selenium-test
 
+      - name: Run Cypress functional tests
+        working-directory: vg-web-sigei-develop
+        run: npm run cypress-test
+
       - name: Stop preview server
         if: always()
         run: |
